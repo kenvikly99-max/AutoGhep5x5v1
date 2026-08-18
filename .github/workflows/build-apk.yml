@@ -16,83 +16,83 @@ jobs:
       uses: actions/setup-java@v4
       with: {java-version: '17', distribution: 'temurin'}
 
-    - name: Apply Unified Logic
+    - name: Build Visual Calibration App
       run: |
         mkdir -p app/src/main/java/com/example/autoghep5x5
         
-        # 1. FloatingButtonService: Kết nối với AutoService
+        # 1. FloatingService: Giao diện điều khiển (Nút bấm nổi)
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/FloatingButtonService.kt
         package com.example.autoghep5x5
         import android.app.*
         import android.content.Intent
         import android.os.*
         import android.view.*
-        import android.widget.Button
+        import android.widget.*
         import android.graphics.PixelFormat
         import androidx.core.app.NotificationCompat
 
         class FloatingButtonService : Service() {
             private lateinit var windowManager: WindowManager
-            private lateinit var btn: Button
-            private var isRunning = false
+            private lateinit var layout: LinearLayout
 
             override fun onBind(intent: Intent?) = null
             override fun onCreate() {
                 super.onCreate()
                 startForeground(1, NotificationCompat.Builder(this, "AUTO_CHANNEL").setSmallIcon(android.R.drawable.sym_def_app_icon).build())
                 windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-                btn = Button(this).apply {
-                    text = "BẮT ĐẦU"
-                    setOnClickListener {
-                        isRunning = !isRunning
-                        text = if (isRunning) "DỪNG" else "BẮT ĐẦU"
-                        // Gửi lệnh cho AutoService
-                        AutoService.instance?.let { if (isRunning) it.startAuto() else it.stopAuto() }
-                    }
+                
+                layout = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(Button(this@FloatingButtonService).apply {
+                        text = "CHỌN GÓC TRÁI"
+                        setOnClickListener { AutoService.instance?.startCapture(1) }
+                    })
+                    addView(Button(this@FloatingButtonService).apply {
+                        text = "CHỌN GÓC PHẢI"
+                        setOnClickListener { AutoService.instance?.startCapture(2) }
+                    })
+                    addView(Button(this@FloatingButtonService).apply {
+                        text = "BẮT ĐẦU AUTO"
+                        setOnClickListener { AutoService.instance?.toggleAuto() }
+                    })
                 }
                 val params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT)
-                windowManager.addView(btn, params)
+                windowManager.addView(layout, params)
             }
         }
         EOF
 
-        # 2. AutoService: Bộ não thực hiện Auto
+        # 2. AutoService: Bộ não ghi nhớ tọa độ & thực hiện thao tác
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/AutoService.kt
         package com.example.autoghep5x5
         import android.accessibilityservice.AccessibilityService
         import android.accessibilityservice.GestureDescription
         import android.graphics.Path
-        import android.os.Handler
-        import android.os.Looper
         import android.view.accessibility.AccessibilityEvent
+        import android.widget.Toast
 
         class AutoService : AccessibilityService() {
             companion object { var instance: AutoService? = null }
-            private val handler = Handler(Looper.getMainLooper())
-            private val runnable = object : Runnable {
-                override fun run() {
-                    // --- ĐÂY LÀ CHỖ BẠN CẦN CHỈNH TỌA ĐỘ ---
-                    // Ví dụ: Kéo từ vị trí x=200, y=500 sang x=600, y=500
-                    dragAndDrop(200f, 500f, 600f, 500f) 
-                    handler.postDelayed(this, 2000) // Lặp lại mỗi 2 giây
-                }
-            }
+            private var captureMode = 0 // 0: Idle, 1: TopLeft, 2: BottomRight
+            private var x1=0f; var y1=0f; var x2=0f; var y2=0f
+            private var isRunning = false
 
             override fun onServiceConnected() { instance = this }
-            fun startAuto() { handler.post(runnable) }
-            fun stopAuto() { handler.removeCallbacks(runnable) }
-            
-            fun dragAndDrop(sx: Float, sy: Float, ex: Float, ey: Float) {
-                val path = Path().apply { moveTo(sx, sy); lineTo(ex, ey) }
-                dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, 300)).build(), null, null)
+            fun startCapture(mode: Int) { captureMode = mode; Toast.makeText(this, "Chạm vào màn hình để lưu điểm!", Toast.LENGTH_SHORT).show() }
+            fun toggleAuto() { isRunning = !isRunning }
+
+            override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+                if (captureMode != 0 && event?.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START) {
+                    val x = event.touchPointX; val y = event.touchPointY
+                    if (captureMode == 1) { x1=x; y1=y; Toast.makeText(this, "Đã lưu góc trái", Toast.LENGTH_SHORT).show() }
+                    else { x2=x; y2=y; Toast.makeText(this, "Đã lưu góc phải", Toast.LENGTH_SHORT).show() }
+                    captureMode = 0
+                }
             }
-            override fun onAccessibilityEvent(e: AccessibilityEvent?) {}
             override fun onInterrupt() {}
         }
         EOF
-        
-        # (Giữ nguyên các file khác như MainActivity, AndroidManifest.xml... ở các bước trước)
     
-    # ... (Các phần build khác giữ nguyên như cũ)
+    # ... (Phần còn lại giữ nguyên để Build APK)
