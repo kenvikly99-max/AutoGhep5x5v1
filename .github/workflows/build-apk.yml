@@ -19,13 +19,19 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Build Project
+    - name: Wipe and Rebuild Project
       run: |
-        # 1. Tạo cấu trúc thư mục tối giản
+        # Xóa sạch mọi file cấu hình cũ trong thư mục app và gốc
+        rm -rf app/build.gradle build.gradle settings.gradle
+        
+        # Tạo cấu trúc mới
         mkdir -p app/src/main/java/com/example/autoghep
         mkdir -p app/src/main/res/values
 
-        # 2. Tạo build.gradle siêu đơn giản (chỉ cần thiết)
+        # 1. settings.gradle
+        echo "include ':app'" > settings.gradle
+
+        # 2. Root build.gradle
         cat << 'EOF' > build.gradle
         buildscript {
             repositories {
@@ -45,11 +51,10 @@ jobs:
         }
         EOF
 
-        # 3. Tạo app/build.gradle
+        # 3. app/build.gradle
         cat << 'EOF' > app/build.gradle
         apply plugin: 'com.android.application'
         apply plugin: 'kotlin-android'
-
         android {
             compileSdk 33
             defaultConfig {
@@ -66,10 +71,7 @@ jobs:
         }
         EOF
 
-        # 4. Tạo file bắt buộc settings.gradle
-        echo "include ':app'" > settings.gradle
-
-        # 5. Tạo file nguồn chính (MainActivity)
+        # 4. Tạo MainActivity.kt
         cat << 'EOF' > app/src/main/java/com/example/autoghep/MainActivity.kt
         package com.example.autoghep
         import androidx.appcompat.app.AppCompatActivity
@@ -81,17 +83,15 @@ jobs:
         }
         EOF
 
-        # 6. Tạo Manifest
+        # 5. Tạo Manifest
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.autoghep">
             <application android:label="AutoGhep" />
         </manifest>
         EOF
 
-        # 7. Cấp quyền và Build
-        chmod +x gradlew || echo "gradlew not found, generating wrapper..."
-        ./gradlew wrapper --gradle-version 8.0
-        ./gradlew assembleDebug
+        # 6. Build
+        ./gradlew assembleDebug --no-daemon
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
