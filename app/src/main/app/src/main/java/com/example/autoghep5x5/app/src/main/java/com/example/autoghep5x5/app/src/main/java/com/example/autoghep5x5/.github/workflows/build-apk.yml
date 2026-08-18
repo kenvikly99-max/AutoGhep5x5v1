@@ -1,3 +1,4 @@
+
 name: Build Android APK
 
 on:
@@ -19,9 +20,12 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Generate Complete Clean Project
+    - name: Setup Clean Project Infrastructure
       run: |
-        # 1. Tạo file settings.gradle chuẩn
+        # Xóa các file gradle cũ dễ gây xung đột
+        rm -f build.gradle settings.gradle
+
+        # 1. Tạo settings.gradle đơn giản nhất
         cat << 'EOF' > settings.gradle
         pluginManagement {
             repositories {
@@ -41,76 +45,19 @@ jobs:
         include ':app'
         EOF
 
-        # 2. Tạo file build.gradle gốc chuẩn
-        cat << 'EOF' > build.gradle
-        buildscript {
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:8.1.4'
-                classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.10'
-            }
-        }
-        allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        EOF
-
-        # 3. Tạo gradle.properties
+        # 2. Tạo gradle.properties bật AndroidX
         cat << 'EOF' > gradle.properties
         android.useAndroidX=true
         android.enableJetifier=true
         EOF
 
-        # 4. Kiểm tra và tạo lại app/build.gradle
-        mkdir -p app
-        cat << 'EOF' > app/build.gradle
-        apply plugin: 'com.android.application'
-        apply plugin: 'kotlin-android'
-
-        android {
-            namespace 'com.example.autoghep5x5'
-            compileSdk 34
-
-            defaultConfig {
-                applicationId "com.example.autoghep5x5"
-                minSdk 24
-                targetSdk 34
-                versionCode 1
-                versionName "1.0"
-            }
-
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-            kotlinOptions {
-                jvmTarget = '17'
-            }
-        }
-
-        dependencies {
-            implementation 'androidx.core:core-ktx:1.12.0'
-            implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.11.0'
-        }
-        EOF
-
-    - name: Setup Gradle Environment
+    - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
-        gradle-version: '8.1.1'
+        gradle-version: '8.2'
 
-    - name: Generate Gradle Wrapper
-      run: gradle wrapper --gradle-version 8.1.1
-
-    - name: Build APK with Gradle
-      run: ./gradlew assembleDebug
+    - name: Build APK Direct
+      run: gradle :app:assembleDebug --stacktrace
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
