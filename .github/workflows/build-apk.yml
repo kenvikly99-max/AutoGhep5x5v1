@@ -21,10 +21,9 @@ jobs:
 
     - name: Auto Generate Complete Project
       run: |
-        # 1. Dọn dẹp cấu hình cũ
         rm -f build.gradle settings.gradle gradle.properties
 
-        # 2. Tạo settings.gradle
+        # 1. Settings Gradle
         cat << 'EOF' > settings.gradle
         pluginManagement {
             repositories {
@@ -44,13 +43,14 @@ jobs:
         include ':app'
         EOF
 
-        # 3. Tạo gradle.properties
+        # 2. Gradle Properties
         cat << 'EOF' > gradle.properties
         android.useAndroidX=true
         android.enableJetifier=true
+        org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
         EOF
 
-        # 4. Bổ sung các file tài nguyên tối thiểu nếu bị thiếu
+        # 3. Tạo folder tài nguyên
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/res/xml
         
@@ -62,11 +62,27 @@ jobs:
           echo '<?xml version="1.0" encoding="utf-8"?><accessibility-service xmlns:android="http://schemas.android.com/apk/res/android" android:accessibilityEventTypes="typeAllMask" android:accessibilityFeedbackType="feedbackGeneric" android:accessibilityFlags="flagDefault" android:canPerformGestures="true" android:canRetrieveWindowContent="true" />' > app/src/main/res/xml/accessibility_service_config.xml
         fi
 
-        if [ ! -f app/src/main/AndroidManifest.xml ]; then
-          echo '<?xml version="1.0" encoding="utf-8"?><manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:allowBackup="true" android:label="@string/app_name" android:supportsRtl="true"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
-        fi
+        # 4. Ghi đè AndroidManifest sạch (không gọi ic_launcher để tránh lỗi thiếu file)
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application
+                android:allowBackup="true"
+                android:label="@string/app_name"
+                android:supportsRtl="true">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+            </application>
+        </manifest>
+        EOF
 
-        # 5. Tạo app/build.gradle chuẩn
+        # 5. App build.gradle
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application' version '8.1.4'
@@ -107,7 +123,7 @@ jobs:
         gradle-version: '8.2'
 
     - name: Build APK
-      run: gradle :app:assembleDebug
+      run: gradle :app:assembleDebug --no-daemon
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
