@@ -21,8 +21,8 @@ jobs:
 
     - name: Wipe and Rebuild Project
       run: |
-        # Xóa sạch mọi file cấu hình cũ trong thư mục app và gốc
-        rm -rf app/build.gradle build.gradle settings.gradle
+        # Xóa các file cấu hình cũ (không xóa gradlew)
+        rm -f app/build.gradle build.gradle settings.gradle
         
         # Tạo cấu trúc mới
         mkdir -p app/src/main/java/com/example/autoghep
@@ -90,7 +90,8 @@ jobs:
         </manifest>
         EOF
 
-        # 6. Build
+        # 6. CẤP QUYỀN VÀ BUILD (Quan trọng)
+        chmod +x gradlew
         ./gradlew assembleDebug --no-daemon
 
     - name: Upload Artifact
