@@ -19,190 +19,82 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Setup Project Structure
+    - name: Build Project
       run: |
-        mkdir -p app/src/main/java/com/example/autoghep5x5
+        # 1. Tạo cấu trúc thư mục tối giản
+        mkdir -p app/src/main/java/com/example/autoghep
         mkdir -p app/src/main/res/values
 
-        # 1. settings.gradle (Định nghĩa kho chứa plugin chuẩn)
-        cat << 'EOF' > settings.gradle
-        pluginManagement {
-            repositories {
-                google()
-                mavenCentral()
-                gradlePluginPortal()
-            }
-        }
-        dependencyResolutionManagement {
-            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
-        rootProject.name = "AutoGhep5x5"
-        include ':app'
-        EOF
-
-        # 2. Root build.gradle
+        # 2. Tạo build.gradle siêu đơn giản (chỉ cần thiết)
         cat << 'EOF' > build.gradle
-        plugins {
-            id 'com.android.application' version '8.2.2' apply false
-            id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+        buildscript {
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:8.1.0'
+                classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0'
+            }
+        }
+        allprojects {
+            repositories {
+                google()
+                mavenCentral()
+            }
         }
         EOF
 
-        # 3. app/build.gradle
+        # 3. Tạo app/build.gradle
         cat << 'EOF' > app/build.gradle
-        plugins {
-            id 'com.android.application'
-            id 'org.jetbrains.kotlin.android'
-        }
+        apply plugin: 'com.android.application'
+        apply plugin: 'kotlin-android'
 
         android {
-            namespace 'com.example.autoghep5x5'
-            compileSdk 34
-
+            compileSdk 33
             defaultConfig {
-                applicationId "com.example.autoghep5x5"
+                applicationId "com.example.autoghep"
                 minSdk 24
-                targetSdk 34
+                targetSdk 33
                 versionCode 1
                 versionName "1.0"
             }
-
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-            kotlinOptions {
-                jvmTarget = '17'
-            }
         }
-
         dependencies {
-            implementation 'androidx.core:core-ktx:1.12.0'
+            implementation 'androidx.core:core-ktx:1.9.0'
             implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.11.0'
         }
         EOF
 
-        # 4. AndroidManifest.xml
-        cat << 'EOF' > app/src/main/AndroidManifest.xml
-        <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-            <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-            <application android:allowBackup="true" android:label="AutoGhép" android:supportsRtl="true" android:icon="@android:drawable/sym_def_app_icon" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                <activity android:name=".MainActivity" android:exported="true">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-                <service android:name=".FloatingButtonService" android:exported="false" />
-                <service android:name=".AutoService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
-                    <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
-                </service>
-            </application>
-        </manifest>
-        EOF
+        # 4. Tạo file bắt buộc settings.gradle
+        echo "include ':app'" > settings.gradle
 
-        # 5. FloatingButtonService.kt
-        cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/FloatingButtonService.kt
-        package com.example.autoghep5x5
-        import android.app.*
-        import android.os.*
-        import android.view.*
-        import android.widget.*
-        import android.graphics.PixelFormat
-        import androidx.core.app.NotificationCompat
-
-        class FloatingButtonService : Service() {
-            private lateinit var wm: WindowManager
-            private lateinit var layout: LinearLayout
-            override fun onBind(intent: android.content.Intent?) = null
-            override fun onCreate() {
-                super.onCreate()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val channel = NotificationChannel("AUTO", "Auto Service", NotificationManager.IMPORTANCE_LOW)
-                    getSystemService(NotificationManager::class.java)?.createNotificationChannel(channel)
-                }
-                startForeground(1, NotificationCompat.Builder(this, "AUTO").setSmallIcon(android.R.drawable.sym_def_app_icon).setContentTitle("Auto").build())
-                wm = getSystemService(WINDOW_SERVICE) as WindowManager
-                layout = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    addView(Button(this@FloatingButtonService).apply { text="GÓC TRÁI"; setOnClickListener { AutoService.instance?.startCapture(1) } })
-                    addView(Button(this@FloatingButtonService).apply { text="GÓC PHẢI"; setOnClickListener { AutoService.instance?.startCapture(2) } })
-                    addView(Button(this@FloatingButtonService).apply { text="BẮT ĐẦU"; setOnClickListener { AutoService.instance?.toggleAuto() } })
-                }
-                val params = WindowManager.LayoutParams(
-                    WindowManager.LayoutParams.WRAP_CONTENT,
-                    WindowManager.LayoutParams.WRAP_CONTENT,
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                    PixelFormat.TRANSLUCENT
-                )
-                wm.addView(layout, params)
-            }
-        }
-        EOF
-
-        # 6. AutoService.kt
-        cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/AutoService.kt
-        package com.example.autoghep5x5
-        import android.accessibilityservice.*
-        import android.view.accessibility.AccessibilityEvent
-        import android.widget.Toast
-
-        class AutoService : AccessibilityService() {
-            companion object { var instance: AutoService? = null }
-            private var cap = 0; var x1=0f; var y1=0f; var x2=0f; var y2=0f; var isRun = false
-            override fun onServiceConnected() { instance = this }
-            fun startCapture(m: Int) { 
-                cap = m 
-                Toast.makeText(this, "Chạm vào màn hình để chọn điểm", Toast.LENGTH_SHORT).show()
-            }
-            fun toggleAuto() { 
-                isRun = !isRun 
-                Toast.makeText(this, if(isRun) "Đã bật Auto" else "Đã tắt Auto", Toast.LENGTH_SHORT).show()
-            }
-            override fun onAccessibilityEvent(e: AccessibilityEvent?) {
-                if (cap != 0 && e?.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START) {
-                    cap = 0
-                    Toast.makeText(this, "Đã chọn điểm thành công!", Toast.LENGTH_SHORT).show()
-                }
-            }
-            override fun onInterrupt() {}
-        }
-        EOF
-
-        # 7. MainActivity.kt
-        cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/MainActivity.kt
-        package com.example.autoghep5x5
-        import android.content.Intent
-        import android.os.Bundle
+        # 5. Tạo file nguồn chính (MainActivity)
+        cat << 'EOF' > app/src/main/java/com/example/autoghep/MainActivity.kt
+        package com.example.autoghep
         import androidx.appcompat.app.AppCompatActivity
-
+        import android.os.Bundle
         class MainActivity : AppCompatActivity() {
             override fun onCreate(savedInstanceState: Bundle?) {
                 super.onCreate(savedInstanceState)
-                startService(Intent(this, FloatingButtonService::class.java))
-                finish()
             }
         }
         EOF
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
+        # 6. Tạo Manifest
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.autoghep">
+            <application android:label="AutoGhep" />
+        </manifest>
+        EOF
 
-    - name: Build APK
-      run: |
-        chmod +x gradlew
-        ./gradlew assembleDebug --no-daemon
+        # 7. Cấp quyền và Build
+        chmod +x gradlew || echo "gradlew not found, generating wrapper..."
+        ./gradlew wrapper --gradle-version 8.0
+        ./gradlew assembleDebug
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: AutoGhep5x5-Debug
+        name: AutoGhep-Debug
         path: app/build/outputs/apk/debug/app-debug.apk
