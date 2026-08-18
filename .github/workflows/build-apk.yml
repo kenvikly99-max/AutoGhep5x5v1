@@ -12,87 +12,113 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
+
     - name: Set up JDK 17
       uses: actions/setup-java@v4
-      with: {java-version: '17', distribution: 'temurin'}
+      with:
+        java-version: '17'
+        distribution: 'temurin'
 
-    - name: Build Visual Calibration App
+    - name: Create Files
       run: |
         mkdir -p app/src/main/java/com/example/autoghep5x5
+        mkdir -p app/src/main/res/values
         
-        # 1. FloatingService: Giao diện điều khiển (Nút bấm nổi)
+        # 1. Manifest
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+            <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+            <application android:allowBackup="true" android:label="AutoGhép" android:supportsRtl="true" android:icon="@android:drawable/sym_def_app_icon" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                <activity android:name=".MainActivity" android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+                <service android:name=".FloatingButtonService" android:exported="false" />
+                <service android:name=".AutoService" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE" android:exported="true">
+                    <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+                </service>
+            </application>
+        </manifest>
+        EOF
+
+        # 2. FloatingService
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/FloatingButtonService.kt
         package com.example.autoghep5x5
         import android.app.*
-        import android.content.Intent
         import android.os.*
         import android.view.*
         import android.widget.*
         import android.graphics.PixelFormat
         import androidx.core.app.NotificationCompat
-
         class FloatingButtonService : Service() {
-            private lateinit var windowManager: WindowManager
+            private lateinit var wm: WindowManager
             private lateinit var layout: LinearLayout
-
-            override fun onBind(intent: Intent?) = null
+            override fun onBind(intent: android.content.Intent?) = null
             override fun onCreate() {
                 super.onCreate()
-                startForeground(1, NotificationCompat.Builder(this, "AUTO_CHANNEL").setSmallIcon(android.R.drawable.sym_def_app_icon).build())
-                windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-                
+                startForeground(1, NotificationCompat.Builder(this, "AUTO").setSmallIcon(android.R.drawable.sym_def_app_icon).build())
+                wm = getSystemService(WINDOW_SERVICE) as WindowManager
                 layout = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
-                    addView(Button(this@FloatingButtonService).apply {
-                        text = "CHỌN GÓC TRÁI"
-                        setOnClickListener { AutoService.instance?.startCapture(1) }
-                    })
-                    addView(Button(this@FloatingButtonService).apply {
-                        text = "CHỌN GÓC PHẢI"
-                        setOnClickListener { AutoService.instance?.startCapture(2) }
-                    })
-                    addView(Button(this@FloatingButtonService).apply {
-                        text = "BẮT ĐẦU AUTO"
-                        setOnClickListener { AutoService.instance?.toggleAuto() }
-                    })
+                    addView(Button(this@FloatingButtonService).apply { text="GÓC TRÁI"; setOnClickListener { AutoService.instance?.startCapture(1) } })
+                    addView(Button(this@FloatingButtonService).apply { text="GÓC PHẢI"; setOnClickListener { AutoService.instance?.startCapture(2) } })
+                    addView(Button(this@FloatingButtonService).apply { text="BẮT ĐẦU"; setOnClickListener { AutoService.instance?.toggleAuto() } })
                 }
-                val params = WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else WindowManager.LayoutParams.TYPE_PHONE,
-                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT)
-                windowManager.addView(layout, params)
+                val params = WindowManager.LayoutParams(-2, -2, if(Build.VERSION.SDK_INT>=26) 2038 else 2002, 8, PixelFormat.TRANSLUCENT)
+                wm.addView(layout, params)
             }
         }
         EOF
 
-        # 2. AutoService: Bộ não ghi nhớ tọa độ & thực hiện thao tác
+        # 3. AutoService
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/AutoService.kt
         package com.example.autoghep5x5
-        import android.accessibilityservice.AccessibilityService
-        import android.accessibilityservice.GestureDescription
+        import android.accessibilityservice.*
         import android.graphics.Path
         import android.view.accessibility.AccessibilityEvent
-        import android.widget.Toast
-
         class AutoService : AccessibilityService() {
             companion object { var instance: AutoService? = null }
-            private var captureMode = 0 // 0: Idle, 1: TopLeft, 2: BottomRight
-            private var x1=0f; var y1=0f; var x2=0f; var y2=0f
-            private var isRunning = false
-
+            private var cap = 0; var x1=0f; var y1=0f; var x2=0f; var y2=0f; var isRun = false
             override fun onServiceConnected() { instance = this }
-            fun startCapture(mode: Int) { captureMode = mode; Toast.makeText(this, "Chạm vào màn hình để lưu điểm!", Toast.LENGTH_SHORT).show() }
-            fun toggleAuto() { isRunning = !isRunning }
-
-            override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-                if (captureMode != 0 && event?.eventType == AccessibilityEvent.TYPE_TOUCH_INTERACTION_START) {
-                    val x = event.touchPointX; val y = event.touchPointY
-                    if (captureMode == 1) { x1=x; y1=y; Toast.makeText(this, "Đã lưu góc trái", Toast.LENGTH_SHORT).show() }
-                    else { x2=x; y2=y; Toast.makeText(this, "Đã lưu góc phải", Toast.LENGTH_SHORT).show() }
-                    captureMode = 0
+            fun startCapture(m: Int) { cap = m }
+            fun toggleAuto() { isRun = !isRun }
+            override fun onAccessibilityEvent(e: AccessibilityEvent?) {
+                if (cap != 0 && e?.eventType == 1) {
+                    if (cap==1) { x1=e.touchPointX; y1=e.touchPointY; cap=0 }
+                    else { x2=e.touchPointX; y2=e.touchPointY; cap=0 }
                 }
             }
             override fun onInterrupt() {}
         }
         EOF
-    
-    # ... (Phần còn lại giữ nguyên để Build APK)
+
+        # 4. MainActivity
+        cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/MainActivity.kt
+        package com.example.autoghep5x5
+        import android.content.Intent
+        import android.os.Bundle
+        import androidx.appcompat.app.AppCompatActivity
+        class MainActivity : AppCompatActivity() {
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
+                startService(Intent(this, FloatingButtonService::class.java))
+                finish()
+            }
+        }
+        EOF
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
+    - name: Build APK
+      run: ./gradlew assembleDebug
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: AutoGhep5x5-Debug
+        path: app/build/outputs/apk/debug/app-debug.apk
