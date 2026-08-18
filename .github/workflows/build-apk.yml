@@ -14,55 +14,43 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-
-    - name: Wipe and Rebuild Project
+      uses: android-actions/setup-android@v3
+      # Dùng setup-java là đủ, mình đổi sang cách build trực tiếp không dựa vào file cũ của repo
+    
+    - name: Build from scratch
       run: |
-        # Xóa các file cấu hình cũ (không xóa gradlew)
-        rm -f app/build.gradle build.gradle settings.gradle
+        # 1. Tạo dự án mới ở thư mục tạm 'new_app' để tránh đụng file cũ
+        mkdir new_app
+        cd new_app
         
-        # Tạo cấu trúc mới
+        # 2. Tạo cấu trúc cần thiết
         mkdir -p app/src/main/java/com/example/autoghep
         mkdir -p app/src/main/res/values
-
-        # 1. settings.gradle
+        
+        # 3. Tạo settings.gradle
         echo "include ':app'" > settings.gradle
-
-        # 2. Root build.gradle
+        
+        # 4. Tạo build.gradle (Root)
         cat << 'EOF' > build.gradle
-        buildscript {
-            repositories {
-                google()
-                mavenCentral()
-            }
-            dependencies {
-                classpath 'com.android.tools.build:gradle:8.1.0'
-                classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0'
-            }
-        }
-        allprojects {
-            repositories {
-                google()
-                mavenCentral()
-            }
+        plugins {
+            id 'com.android.application' version '8.1.0' apply false
+            id 'org.jetbrains.kotlin.android' version '1.8.0' apply false
         }
         EOF
-
-        # 3. app/build.gradle
+        
+        # 5. Tạo app/build.gradle
         cat << 'EOF' > app/build.gradle
-        apply plugin: 'com.android.application'
-        apply plugin: 'kotlin-android'
+        plugins {
+            id 'com.android.application'
+            id 'org.jetbrains.kotlin.android'
+        }
         android {
+            namespace 'com.example.autoghep'
             compileSdk 33
             defaultConfig {
                 applicationId "com.example.autoghep"
                 minSdk 24
                 targetSdk 33
-                versionCode 1
-                versionName "1.0"
             }
         }
         dependencies {
@@ -70,8 +58,12 @@ jobs:
             implementation 'androidx.appcompat:appcompat:1.6.1'
         }
         EOF
-
-        # 4. Tạo MainActivity.kt
+        
+        # 6. Tạo Manifest & Code
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.autoghep" />
+        EOF
+        
         cat << 'EOF' > app/src/main/java/com/example/autoghep/MainActivity.kt
         package com.example.autoghep
         import androidx.appcompat.app.AppCompatActivity
@@ -82,15 +74,9 @@ jobs:
             }
         }
         EOF
-
-        # 5. Tạo Manifest
-        cat << 'EOF' > app/src/main/AndroidManifest.xml
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.autoghep">
-            <application android:label="AutoGhep" />
-        </manifest>
-        EOF
-
-        # 6. CẤP QUYỀN VÀ BUILD (Quan trọng)
+        
+        # 7. Tự tạo wrapper và Build
+        gradle wrapper --gradle-version 8.0
         chmod +x gradlew
         ./gradlew assembleDebug --no-daemon
 
@@ -98,4 +84,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: AutoGhep-Debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: new_app/app/build/outputs/apk/debug/app-debug.apk
