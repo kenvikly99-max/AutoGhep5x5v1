@@ -19,12 +19,12 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Generate Code
+    - name: Generate Source Files
       run: |
         mkdir -p app/src/main/java/com/example/autoghep5x5
         mkdir -p app/src/main/res/values
 
-        # AndroidManifest.xml
+        # 1. AndroidManifest.xml
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -45,7 +45,7 @@ jobs:
         </manifest>
         EOF
 
-        # FloatingButtonService.kt
+        # 2. FloatingButtonService.kt
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/FloatingButtonService.kt
         package com.example.autoghep5x5
         import android.app.*
@@ -85,7 +85,7 @@ jobs:
         }
         EOF
 
-        # AutoService.kt
+        # 3. AutoService.kt
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/AutoService.kt
         package com.example.autoghep5x5
         import android.accessibilityservice.*
@@ -114,7 +114,7 @@ jobs:
         }
         EOF
 
-        # MainActivity.kt
+        # 4. MainActivity.kt
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/MainActivity.kt
         package com.example.autoghep5x5
         import android.content.Intent
@@ -130,48 +130,13 @@ jobs:
         }
         EOF
 
-        # app/build.gradle
-        cat << 'EOF' > app/build.gradle
-        plugins {
-            id 'com.android.application'
-            id 'org.jetbrains.kotlin.android'
-        }
-
-        android {
-            namespace 'com.example.autoghep5x5'
-            compileSdk 34
-
-            defaultConfig {
-                applicationId "com.example.autoghep5x5"
-                minSdk 24
-                targetSdk 34
-                versionCode 1
-                versionName "1.0"
-            }
-
-            compileOptions {
-                sourceCompatibility JavaVersion.VERSION_17
-                targetCompatibility JavaVersion.VERSION_17
-            }
-            kotlinOptions {
-                jvmTarget = '17'
-            }
-        }
-
-        dependencies {
-            implementation 'androidx.core:core-ktx:1.12.0'
-            implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.android.material:material:1.11.0'
-        }
-        EOF
-
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
 
     - name: Build APK
       run: |
         chmod +x gradlew
-        ./gradlew assembleDebug --no-daemon
+        ./gradlew assembleDebug
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
