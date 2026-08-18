@@ -1,10 +1,15 @@
 package com.example.autoghep5x5
 
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Path
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import androidx.appcompat.app.AppCompatActivity
 import kotlin.math.abs
@@ -56,5 +61,28 @@ class MainActivity : AppCompatActivity() {
             }
             return matchingPixels.toDouble() / (totalPixels / (step * step))
         }
+    }
+}
+
+class AutoService : AccessibilityService() {
+    private val handler = Handler(Looper.getMainLooper())
+
+    override fun onAccessibilityEvent(event: android.view.accessibility.AccessibilityEvent?) {}
+    override fun onInterrupt() {}
+
+    fun dragAndDrop(startX: Float, startY: Float, endX: Float, endY: Float, onComplete: () -> Unit) {
+        val path = Path().apply {
+            moveTo(startX, startY)
+            lineTo(endX, endY)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 300))
+            .build()
+
+        dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                handler.postDelayed({ onComplete() }, 400)
+            }
+        }, null)
     }
 }
