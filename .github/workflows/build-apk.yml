@@ -19,12 +19,12 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Fix Missing Resources and Patch Manifest
+    - name: Patch Manifest, Theme and Build Environment
       run: |
-        # Xóa các file cấu hình thừa ở gốc gây xung đột
+        # 1. Dọn dẹp cấu hình xung đột
         rm -f build.gradle settings.gradle gradle.properties
 
-        # Tạo file settings.gradle
+        # 2. Tạo settings.gradle chuẩn
         cat << 'EOF' > settings.gradle
         pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
         dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
@@ -32,22 +32,60 @@ jobs:
         include ':app'
         EOF
 
-        # Tạo gradle.properties
+        # 3. Tạo gradle.properties chuẩn
         cat << 'EOF' > gradle.properties
         android.useAndroidX=true
         android.enableJetifier=true
         org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
         EOF
 
-        # TỰ ĐỘNG TẠO FILE STRINGS BỊ THIẾU
+        # 4. Đảm bảo có file strings.xml
         mkdir -p app/src/main/res/values
         if [ ! -f app/src/main/res/values/strings.xml ]; then
           echo '<resources><string name="app_name">AutoGhep5x5</string></resources>' > app/src/main/res/values/strings.xml
         fi
 
-        # VÁ LỖI ICON BỊ THIẾU TRONG MANIFEST
-        sed -i 's|android:icon="@mipmap/ic_launcher"|android:icon="@android:drawable/sym_def_app_icon"|g' app/src/main/AndroidManifest.xml || true
-        sed -i 's|android:roundIcon="@mipmap/ic_launcher_round"|android:roundIcon="@android:drawable/sym_def_app_icon"|g' app/src/main/AndroidManifest.xml || true
+        # 5. Ghi đè AndroidManifest.xml chuẩn Theme & bổ sung khai báo Service (dành cho Auto/Overlay)
+        cat << 'EOF' > app/src/main/AndroidManifest.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+            <!-- Các quyền cơ bản cho Floating Window & Accessibility -->
+            <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+            <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+            <application
+                android:allowBackup="true"
+                android:label="@string/app_name"
+                android:supportsRtl="true"
+                android:icon="@android:drawable/sym_def_app_icon"
+                android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+
+                <!-- Khai báo Accessibility Service (nếu code có dùng) -->
+                <service
+                    android:name=".AutoService"
+                    android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+                    android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.accessibilityservice.AccessibilityService" />
+                    </intent-filter>
+                    <meta-data
+                        android:name="android.accessibilityservice"
+                        android:resource="@xml/accessibility_service_config" />
+                </service>
+
+            </application>
+        </manifest>
+        EOF
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
