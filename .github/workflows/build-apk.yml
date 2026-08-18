@@ -14,23 +14,38 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Set up JDK 17
-      uses: android-actions/setup-android@v3
-      # Dùng setup-java là đủ, mình đổi sang cách build trực tiếp không dựa vào file cũ của repo
-    
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
     - name: Build from scratch
       run: |
-        # 1. Tạo dự án mới ở thư mục tạm 'new_app' để tránh đụng file cũ
-        mkdir new_app
+        # 1. Tạo thư mục build sạch
+        mkdir -p new_app/app/src/main/java/com/example/autoghep
+        mkdir -p new_app/app/src/main/res/values
         cd new_app
         
-        # 2. Tạo cấu trúc cần thiết
-        mkdir -p app/src/main/java/com/example/autoghep
-        mkdir -p app/src/main/res/values
+        # 2. Tạo settings.gradle (Quan trọng: Khai báo kho chứa plugin)
+        cat << 'EOF' > settings.gradle
+        pluginManagement {
+            repositories {
+                google()
+                gradlePluginPortal()
+                mavenCentral()
+            }
+        }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        include ':app'
+        EOF
         
-        # 3. Tạo settings.gradle
-        echo "include ':app'" > settings.gradle
-        
-        # 4. Tạo build.gradle (Root)
+        # 3. Tạo build.gradle (Root)
         cat << 'EOF' > build.gradle
         plugins {
             id 'com.android.application' version '8.1.0' apply false
@@ -38,7 +53,7 @@ jobs:
         }
         EOF
         
-        # 5. Tạo app/build.gradle
+        # 4. Tạo app/build.gradle
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application'
@@ -59,7 +74,7 @@ jobs:
         }
         EOF
         
-        # 6. Tạo Manifest & Code
+        # 5. Tạo Manifest & Code
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.autoghep" />
         EOF
@@ -75,9 +90,8 @@ jobs:
         }
         EOF
         
-        # 7. Tự tạo wrapper và Build
-        gradle wrapper --gradle-version 8.0
-        chmod +x gradlew
+        # 6. Build
+        chmod +x gradlew || gradle wrapper --gradle-version 8.0
         ./gradlew assembleDebug --no-daemon
 
     - name: Upload Artifact
