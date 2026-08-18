@@ -19,7 +19,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Auto Generate Complete Project
+    - name: Auto Fix and Generate Complete App
       run: |
         rm -f build.gradle settings.gradle gradle.properties
 
@@ -50,28 +50,43 @@ jobs:
         org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
         EOF
 
-        # 3. Tạo folder tài nguyên
+        # 3. Tạo thư mục chứa code Kotlin & tài nguyên
+        mkdir -p app/src/main/java/com/example/autoghep5x5
         mkdir -p app/src/main/res/values
         mkdir -p app/src/main/res/xml
         
-        if [ ! -f app/src/main/res/values/strings.xml ]; then
-          echo '<resources><string name="app_name">AutoGhep5x5</string></resources>' > app/src/main/res/values/strings.xml
-        fi
+        # 4. Tạo MainActivity.kt chuẩn
+        cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/MainActivity.kt
+        package com.example.autoghep5x5
+
+        import android.os.Bundle
+        import androidx.appcompat.app.AppCompatActivity
+
+        class MainActivity : AppCompatActivity() {
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
+            }
+        }
+        EOF
+
+        # 5. Strings & Resource
+        echo '<resources><string name="app_name">AutoGhep5x5</string></resources>' > app/src/main/res/values/strings.xml
 
         if [ ! -f app/src/main/res/xml/accessibility_service_config.xml ]; then
           echo '<?xml version="1.0" encoding="utf-8"?><accessibility-service xmlns:android="http://schemas.android.com/apk/res/android" android:accessibilityEventTypes="typeAllMask" android:accessibilityFeedbackType="feedbackGeneric" android:accessibilityFlags="flagDefault" android:canPerformGestures="true" android:canRetrieveWindowContent="true" />' > app/src/main/res/xml/accessibility_service_config.xml
         fi
 
-        # 4. Ghi đè AndroidManifest sạch (không gọi ic_launcher để tránh lỗi thiếu file)
+        # 6. AndroidManifest.xml chuẩn khớp package
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <application
                 android:allowBackup="true"
                 android:label="@string/app_name"
-                android:supportsRtl="true">
+                android:supportsRtl="true"
+                android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                 <activity
-                    android:name=".MainActivity"
+                    android:name="com.example.autoghep5x5.MainActivity"
                     android:exported="true">
                     <intent-filter>
                         <action android:name="android.intent.action.MAIN" />
@@ -82,7 +97,7 @@ jobs:
         </manifest>
         EOF
 
-        # 5. App build.gradle
+        # 7. App build.gradle
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application' version '8.1.4'
