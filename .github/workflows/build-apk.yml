@@ -19,37 +19,29 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Clean Conflicting Gradle Files
+    - name: Build Project
       run: |
-        # Chỉ xóa các file gradle thừa ở thư mục gốc nếu có để tránh xung đột
+        # Xóa các file cấu hình thừa (nếu có) để tránh xung đột
         rm -f build.gradle settings.gradle gradle.properties
 
-        # Tạo file settings.gradle chuẩn cho hệ thống
+        # Tạo file cấu hình Gradle chuẩn để đọc code của bạn
         cat << 'EOF' > settings.gradle
-        pluginManagement {
-            repositories {
-                google()
-                mavenCentral()
-                gradlePluginPortal()
-            }
-        }
-        dependencyResolutionManagement {
-            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-            repositories {
-                google()
-                mavenCentral()
-            }
-        }
+        pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+        dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
         rootProject.name = "AutoGhep5x5"
         include ':app'
         EOF
 
-        # Tạo gradle.properties
         cat << 'EOF' > gradle.properties
         android.useAndroidX=true
         android.enableJetifier=true
         org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
         EOF
+
+        # VÀI BƯỚC SỬA LỖI ICON (Để đảm bảo build không lỗi)
+        # Chỉ áp dụng nếu project chưa có icon, nếu bạn đã có icon thì bước này vô hại
+        sed -i 's|android:icon="@mipmap/ic_launcher"|android:icon="@android:drawable/sym_def_app_icon"|g' app/src/main/AndroidManifest.xml || true
+        sed -i 's|android:roundIcon="@mipmap/ic_launcher_round"|android:roundIcon="@android:drawable/sym_def_app_icon"|g' app/src/main/AndroidManifest.xml || true
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
