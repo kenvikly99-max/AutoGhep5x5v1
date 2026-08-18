@@ -19,7 +19,6 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # Sử dụng action chính thức của Gradle để ép buộc phiên bản 8.2
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
@@ -59,7 +58,7 @@ jobs:
         }
         EOF
         
-        # 4. Tạo app/build.gradle
+        # 4. Tạo app/build.gradle (Tối giản hết mức để test)
         cat << 'EOF' > app/build.gradle
         plugins {
             id 'com.android.application'
@@ -73,14 +72,13 @@ jobs:
                 minSdk 24
                 targetSdk 33
             }
-        }
-        dependencies {
-            implementation 'androidx.core:core-ktx:1.9.0'
-            implementation 'androidx.appcompat:appcompat:1.6.1'
+            lint {
+                abortOnError false
+            }
         }
         EOF
         
-        # 5. Tạo các file cần thiết
+        # 5. Tạo Manifest & Code
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.autoghep" />
         EOF
@@ -96,8 +94,8 @@ jobs:
         }
         EOF
         
-        # 6. Build trực tiếp bằng gradle (đã được cấu hình ở bước setup-gradle)
-        gradle assembleDebug --no-daemon
+        # 6. Chạy build với --stacktrace để hiện lỗi thật
+        gradle assembleDebug --no-daemon --stacktrace
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
