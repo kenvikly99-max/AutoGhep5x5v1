@@ -19,7 +19,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Patch Manifest, Theme and Build Environment
+    - name: Safe Patch Project
       run: |
         # 1. Dọn dẹp cấu hình xung đột
         rm -f build.gradle settings.gradle gradle.properties
@@ -39,53 +39,19 @@ jobs:
         org.gradle.jvmargs=-Xmx2048m -XX:MaxMetaspaceSize=512m
         EOF
 
-        # 4. Đảm bảo có file strings.xml
+        # 4. Bổ sung file strings.xml bị thiếu
         mkdir -p app/src/main/res/values
         if [ ! -f app/src/main/res/values/strings.xml ]; then
           echo '<resources><string name="app_name">AutoGhep5x5</string></resources>' > app/src/main/res/values/strings.xml
         fi
 
-        # 5. Ghi đè AndroidManifest.xml chuẩn Theme & bổ sung khai báo Service (dành cho Auto/Overlay)
-        cat << 'EOF' > app/src/main/AndroidManifest.xml
-        <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-            <!-- Các quyền cơ bản cho Floating Window & Accessibility -->
-            <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-            <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
-            <application
-                android:allowBackup="true"
-                android:label="@string/app_name"
-                android:supportsRtl="true"
-                android:icon="@android:drawable/sym_def_app_icon"
-                android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-
-                <activity
-                    android:name=".MainActivity"
-                    android:exported="true">
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN" />
-                        <category android:name="android.intent.category.LAUNCHER" />
-                    </intent-filter>
-                </activity>
-
-                <!-- Khai báo Accessibility Service (nếu code có dùng) -->
-                <service
-                    android:name=".AutoService"
-                    android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-                    android:exported="true">
-                    <intent-filter>
-                        <action android:name="android.accessibilityservice.AccessibilityService" />
-                    </intent-filter>
-                    <meta-data
-                        android:name="android.accessibilityservice"
-                        android:resource="@xml/accessibility_service_config" />
-                </service>
-
-            </application>
-        </manifest>
-        EOF
+        # 5. Sửa an toàn Manifest gốc: Thêm Theme chống văng & Thay icon bị thiếu
+        # Thêm theme AppCompat vào thẻ <application> nếu chưa có
+        sed -i 's/<application/<application android:theme="@style\/Theme.AppCompat.Light.NoActionBar"/g' app/src/main/AndroidManifest.xml || true
+        
+        # Thay icon hỏng bằng icon hệ thống Android
+        sed -i 's|android:icon="@mipmap/ic_launcher"|android:icon="@android:drawable/sym_def_app_icon"|g' app/src/main/AndroidManifest.xml || true
+        sed -i 's|android:roundIcon="@mipmap/ic_launcher_round"|android:roundIcon="@android:drawable/sym_def_app_icon"|g' app/src/main/AndroidManifest.xml || true
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
