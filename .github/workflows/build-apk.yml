@@ -19,12 +19,75 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Generate Source Files
+    - name: Setup Project Structure
       run: |
         mkdir -p app/src/main/java/com/example/autoghep5x5
         mkdir -p app/src/main/res/values
 
-        # 1. AndroidManifest.xml
+        # 1. settings.gradle (Định nghĩa kho chứa plugin chuẩn)
+        cat << 'EOF' > settings.gradle
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        rootProject.name = "AutoGhep5x5"
+        include ':app'
+        EOF
+
+        # 2. Root build.gradle
+        cat << 'EOF' > build.gradle
+        plugins {
+            id 'com.android.application' version '8.2.2' apply false
+            id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
+        }
+        EOF
+
+        # 3. app/build.gradle
+        cat << 'EOF' > app/build.gradle
+        plugins {
+            id 'com.android.application'
+            id 'org.jetbrains.kotlin.android'
+        }
+
+        android {
+            namespace 'com.example.autoghep5x5'
+            compileSdk 34
+
+            defaultConfig {
+                applicationId "com.example.autoghep5x5"
+                minSdk 24
+                targetSdk 34
+                versionCode 1
+                versionName "1.0"
+            }
+
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+            kotlinOptions {
+                jvmTarget = '17'
+            }
+        }
+
+        dependencies {
+            implementation 'androidx.core:core-ktx:1.12.0'
+            implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation 'com.google.android.material:material:1.11.0'
+        }
+        EOF
+
+        # 4. AndroidManifest.xml
         cat << 'EOF' > app/src/main/AndroidManifest.xml
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -45,7 +108,7 @@ jobs:
         </manifest>
         EOF
 
-        # 2. FloatingButtonService.kt
+        # 5. FloatingButtonService.kt
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/FloatingButtonService.kt
         package com.example.autoghep5x5
         import android.app.*
@@ -85,7 +148,7 @@ jobs:
         }
         EOF
 
-        # 3. AutoService.kt
+        # 6. AutoService.kt
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/AutoService.kt
         package com.example.autoghep5x5
         import android.accessibilityservice.*
@@ -114,7 +177,7 @@ jobs:
         }
         EOF
 
-        # 4. MainActivity.kt
+        # 7. MainActivity.kt
         cat << 'EOF' > app/src/main/java/com/example/autoghep5x5/MainActivity.kt
         package com.example.autoghep5x5
         import android.content.Intent
@@ -136,7 +199,7 @@ jobs:
     - name: Build APK
       run: |
         chmod +x gradlew
-        ./gradlew assembleDebug
+        ./gradlew assembleDebug --no-daemon
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
