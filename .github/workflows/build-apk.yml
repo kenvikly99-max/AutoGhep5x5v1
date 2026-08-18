@@ -19,13 +19,95 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Auto Generate Complete Project
+      run: |
+        # 1. Dọn dẹp cấu hình cũ
+        rm -f build.gradle settings.gradle gradle.properties
+
+        # 2. Tạo settings.gradle
+        cat << 'EOF' > settings.gradle
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        rootProject.name = "AutoGhep5x5"
+        include ':app'
+        EOF
+
+        # 3. Tạo gradle.properties
+        cat << 'EOF' > gradle.properties
+        android.useAndroidX=true
+        android.enableJetifier=true
+        EOF
+
+        # 4. Bổ sung các file tài nguyên tối thiểu nếu bị thiếu
+        mkdir -p app/src/main/res/values
+        mkdir -p app/src/main/res/xml
+        
+        if [ ! -f app/src/main/res/values/strings.xml ]; then
+          echo '<resources><string name="app_name">AutoGhep5x5</string></resources>' > app/src/main/res/values/strings.xml
+        fi
+
+        if [ ! -f app/src/main/res/xml/accessibility_service_config.xml ]; then
+          echo '<?xml version="1.0" encoding="utf-8"?><accessibility-service xmlns:android="http://schemas.android.com/apk/res/android" android:accessibilityEventTypes="typeAllMask" android:accessibilityFeedbackType="feedbackGeneric" android:accessibilityFlags="flagDefault" android:canPerformGestures="true" android:canRetrieveWindowContent="true" />' > app/src/main/res/xml/accessibility_service_config.xml
+        fi
+
+        if [ ! -f app/src/main/AndroidManifest.xml ]; then
+          echo '<?xml version="1.0" encoding="utf-8"?><manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:allowBackup="true" android:label="@string/app_name" android:supportsRtl="true"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
+        fi
+
+        # 5. Tạo app/build.gradle chuẩn
+        cat << 'EOF' > app/build.gradle
+        plugins {
+            id 'com.android.application' version '8.1.4'
+            id 'org.jetbrains.kotlin.android' version '1.8.10'
+        }
+
+        android {
+            namespace 'com.example.autoghep5x5'
+            compileSdk 34
+
+            defaultConfig {
+                applicationId "com.example.autoghep5x5"
+                minSdk 24
+                targetSdk 34
+                versionCode 1
+                versionName "1.0"
+            }
+
+            compileOptions {
+                sourceCompatibility JavaVersion.VERSION_17
+                targetCompatibility JavaVersion.VERSION_17
+            }
+            kotlinOptions {
+                jvmTarget = '17'
+            }
+        }
+
+        dependencies {
+            implementation 'androidx.core:core-ktx:1.12.0'
+            implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation 'com.google.android.material:material:1.11.0'
+        }
+        EOF
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
         gradle-version: '8.2'
 
-    - name: Build APK Direct
-      run: gradle :app:assembleDebug --stacktrace
+    - name: Build APK
+      run: gradle :app:assembleDebug
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
